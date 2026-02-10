@@ -1,0 +1,138 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # Kafka - Message Queue
+  # ===========================================
+  kafka:
+    image: bitnami/kafka:3.6
+    container_name: gosight-kafka
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      # KRaft mode (no Zookeeper needed)
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      # Auto create topics
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      # Performance tuning
+      - KAFKA_CFG_NUM_PARTITIONS=3
+      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=1
+    volumes:
+      - kafka_data:/bitnami/kafka
+    healthcheck:
+      test: kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gosight-network
+
+  # ===========================================
+  # ClickHouse - Analytics Database
+  # ===========================================
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.12
+    container_name: gosight-clickhouse
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native TCP
+    environment:
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-gosight}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-gosight}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-gosight_pass}
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./scripts/init-clickhouse.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gosight-network
+
+  # ===========================================
+  # PostgreSQL - Metadata Database
+  # ===========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: gosight-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-gosight}
+      - POSTGRES_USER=${POSTGRES_USER:-gosight}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gosight_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: pg_isready -U ${POSTGRES_USER:-gosight} -d ${POSTGRES_DB:-gosight}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gosight-network
+
+  # ===========================================
+  # Redis - Cache & Rate Limiting
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: gosight-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: redis-cli ping | grep PONG
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gosight-network
+
+  # ===========================================
+  # Kafka UI - Development Only
+  # ===========================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: gosight-kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=gosight
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - gosight-network
+    profiles:
+      - dev  # Only start with: docker compose --profile dev up
+
+# ===========================================
+# Networks
+# ===========================================
+networks:
+  gosight-network:
+    driver: bridge
+
+# ===========================================
+# Volumes
+# ===========================================
+volumes:
+  kafka_data:
+  clickhouse_data:
+  postgres_data:
+  redis_data:
