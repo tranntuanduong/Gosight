@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS gosight.events
 ENGINE = MergeTree()
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY (project_id, session_id, timestamp)
-TTL timestamp + INTERVAL 90 DAY
+TTL toDateTime(timestamp) + INTERVAL 90 DAY
 SETTINGS index_granularity = 8192;
 
 -- ===========================================
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS gosight.sessions
 ENGINE = ReplacingMergeTree(created_at)
 PARTITION BY toYYYYMM(started_at)
 ORDER BY (project_id, session_id)
-TTL started_at + INTERVAL 90 DAY;
+TTL toDateTime(started_at) + INTERVAL 90 DAY;
 
 -- ===========================================
 -- Page Views Table
@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS gosight.page_views
 ENGINE = MergeTree()
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY (project_id, page_path, timestamp)
-TTL timestamp + INTERVAL 90 DAY;
+TTL toDateTime(timestamp) + INTERVAL 90 DAY;
 
 -- ===========================================
 -- Web Vitals Table
@@ -162,7 +162,7 @@ CREATE TABLE IF NOT EXISTS gosight.web_vitals
 ENGINE = MergeTree()
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY (project_id, page_path, timestamp)
-TTL timestamp + INTERVAL 90 DAY;
+TTL toDateTime(timestamp) + INTERVAL 90 DAY;
 
 -- ===========================================
 -- Replay Chunks Table
@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS gosight.replay_chunks
 ENGINE = MergeTree()
 PARTITION BY toYYYYMM(timestamp_start)
 ORDER BY (project_id, session_id, chunk_index)
-TTL timestamp_start + INTERVAL 30 DAY;  -- Replay data expires faster
+TTL toDateTime(timestamp_start) + INTERVAL 30 DAY;  -- Replay data expires faster
 
 -- ===========================================
 -- Errors Table
@@ -220,7 +220,7 @@ CREATE TABLE IF NOT EXISTS gosight.errors
 ENGINE = MergeTree()
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY (project_id, message, timestamp)
-TTL timestamp + INTERVAL 90 DAY;
+TTL toDateTime(timestamp) + INTERVAL 90 DAY;
 
 -- ===========================================
 -- Insights Table
@@ -248,4 +248,4 @@ CREATE TABLE IF NOT EXISTS gosight.insights
 ENGINE = MergeTree()
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY (project_id, insight_type, timestamp)
-TTL timestamp + INTERVAL 90 DAY;
+TTL toDateTime(timestamp) + INTERVAL 90 DAY;
