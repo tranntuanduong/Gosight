@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+package gosight;
+
+import "gosight/common.proto";
+
+option go_package = "github.com/gosight/gosight/proto/gosight";
+
+// Event type enum
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  EVENT_TYPE_PAGE_VIEW = 1;
+  EVENT_TYPE_CLICK = 2;
+  EVENT_TYPE_SCROLL = 3;
+  EVENT_TYPE_INPUT_CHANGE = 4;
+  EVENT_TYPE_INPUT_FOCUS = 5;
+  EVENT_TYPE_INPUT_BLUR = 6;
+  EVENT_TYPE_MOUSE_MOVE = 7;
+  EVENT_TYPE_VISIBILITY_CHANGE = 8;
+  EVENT_TYPE_JS_ERROR = 9;
+  EVENT_TYPE_NETWORK_ERROR = 10;
+  EVENT_TYPE_CONSOLE_LOG = 11;
+  EVENT_TYPE_WEB_VITALS = 12;
+  EVENT_TYPE_PAGE_LOAD = 13;
+  EVENT_TYPE_RESOURCE_LOAD = 14;
+  EVENT_TYPE_CUSTOM = 15;
+}
+
+// Base event
+message Event {
+  string event_id = 1;
+  EventType type = 2;
+  int64 timestamp = 3;  // Unix milliseconds
+  Page page = 4;
+
+  oneof payload {
+    ClickEvent click = 10;
+    ScrollEvent scroll = 11;
+    InputEvent input = 12;
+    MouseMoveEvent mouse_move = 13;
+    JsErrorEvent js_error = 14;
+    WebVitalsEvent web_vitals = 15;
+    PageLoadEvent page_load = 16;
+    CustomEvent custom = 17;
+  }
+}
+
+// Click event payload
+message ClickEvent {
+  int32 x = 1;
+  int32 y = 2;
+  TargetElement target = 3;
+}
+
+// Scroll event payload
+message ScrollEvent {
+  int32 scroll_top = 1;
+  int32 scroll_height = 2;
+  int32 viewport_height = 3;
+  int32 depth_percent = 4;  // 0-100
+}
+
+// Input event payload
+message InputEvent {
+  TargetElement target = 1;
+  string input_type = 2;
+  bool is_masked = 3;
+  string value = 4;  // only if not masked
+}
+
+// Mouse move event (batched positions)
+message MouseMoveEvent {
+  repeated MousePosition positions = 1;
+}
+
+message MousePosition {
+  int32 x = 1;
+  int32 y = 2;
+  int64 t = 3;  // relative timestamp
+}
+
+// JavaScript error
+message JsErrorEvent {
+  string message = 1;
+  string stack = 2;
+  string source = 3;
+  int32 line = 4;
+  int32 column = 5;
+  string error_type = 6;
+}
+
+// Web vitals metrics
+message WebVitalsEvent {
+  optional double lcp = 1;   // Largest Contentful Paint
+  optional double fid = 2;   // First Input Delay
+  optional double cls = 3;   // Cumulative Layout Shift
+  optional double ttfb = 4;  // Time to First Byte
+  optional double fcp = 5;   // First Contentful Paint
+  optional double inp = 6;   // Interaction to Next Paint
+}
+
+// Page load timing
+message PageLoadEvent {
+  int64 dns_lookup = 1;
+  int64 tcp_connect = 2;
+  int64 request_start = 3;
+  int64 response_start = 4;
+  int64 response_end = 5;
+  int64 dom_interactive = 6;
+  int64 dom_complete = 7;
+  int64 load_complete = 8;
+}
+
+// Custom event
+message CustomEvent {
+  string name = 1;
+  map<string, string> properties = 2;
+}
+
+// Replay chunk (rrweb events)
+message ReplayChunk {
+  int32 chunk_index = 1;
+  int64 timestamp_start = 2;
+  int64 timestamp_end = 3;
+  bytes data = 4;  // Compressed rrweb events JSON
+  bool has_full_snapshot = 5;
+}

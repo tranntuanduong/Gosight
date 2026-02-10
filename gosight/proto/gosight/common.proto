@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package gosight;
+
+option go_package = "github.com/gosight/gosight/proto/gosight";
+
+// Timestamp với millisecond precision
+message Timestamp {
+  int64 seconds = 1;
+  int32 millis = 2;
+}
+
+// Device information
+message Device {
+  string browser = 1;
+  string browser_version = 2;
+  string os = 3;
+  string os_version = 4;
+  string device_type = 5;  // desktop, mobile, tablet
+  int32 screen_width = 6;
+  int32 screen_height = 7;
+  int32 viewport_width = 8;
+  int32 viewport_height = 9;
+}
+
+// Page information
+message Page {
+  string url = 1;
+  string path = 2;
+  string title = 3;
+  string referrer = 4;
+}
+
+// Session metadata
+message SessionMeta {
+  string session_id = 1;
+  string user_id = 2;
+  Device device = 3;
+  string timezone = 4;
+  string language = 5;
+}
+
+// Click target element
+message TargetElement {
+  string tag = 1;
+  string selector = 2;
+  repeated string classes = 3;
+  string id = 4;
+  string text = 5;  // truncated to 100 chars
+  string href = 6;
+  map<string, string> attributes = 7;
+}

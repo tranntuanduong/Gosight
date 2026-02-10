@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package gosight;
+
+import "gosight/common.proto";
+import "gosight/events.proto";
+
+option go_package = "github.com/gosight/gosight/proto/gosight";
+
+// Ingest service
+service IngestService {
+  // Stream events from client
+  rpc SendEvents(stream EventBatch) returns (stream EventAck);
+
+  // Send replay chunks
+  rpc SendReplay(stream ReplayChunk) returns (ReplayAck);
+}
+
+// Batch of events
+message EventBatch {
+  string project_key = 1;
+  SessionMeta session = 2;
+  repeated Event events = 3;
+  int64 sent_at = 4;
+}
+
+// Event acknowledgment
+message EventAck {
+  bool success = 1;
+  int32 accepted_count = 2;
+  int32 rejected_count = 3;
+  repeated string errors = 4;
+}
+
+// Replay acknowledgment
+message ReplayAck {
+  bool success = 1;
+  string message = 2;
+}
