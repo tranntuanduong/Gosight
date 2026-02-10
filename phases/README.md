@@ -28,19 +28,19 @@
 
 ## Phases Overview
 
-| Phase | Tên | Mô tả |
-|-------|-----|-------|
-| 1 | Foundation & Infrastructure | Thiết lập cơ sở hạ tầng |
-| 2 | Ingestor Service | gRPC server nhận events |
-| 3 | SDK | Client-side JavaScript SDK |
-| 4 | Event Processor | Xử lý events vào ClickHouse |
-| 5 | Insight Processor | Phát hiện UX insights |
-| 6 | Replay Processor | Xử lý session replay |
-| 7 | API Service | REST API cho dashboard |
-| 8 | Dashboard | Next.js web interface |
-| 9 | Alert Processor | Xử lý và gửi alerts |
-| 10 | Testing & Optimization | Testing và tối ưu |
-| 11 | Documentation & Deployment | Docs và deployment |
+| Phase | Tên | Mô tả | Status |
+|-------|-----|-------|--------|
+| 1 | Foundation & Infrastructure | Thiết lập cơ sở hạ tầng | :white_check_mark: |
+| 2 | Ingestor Service | gRPC server nhận events | |
+| 3 | SDK | Client-side JavaScript SDK | |
+| 4 | Event Processor | Xử lý events vào ClickHouse | |
+| 5 | Insight Processor | Phát hiện UX insights | |
+| 6 | Replay Processor | Xử lý session replay | |
+| 7 | API Service | REST API cho dashboard | |
+| 8 | Dashboard | Next.js web interface | |
+| 9 | Alert Processor | Xử lý và gửi alerts | |
+| 10 | Testing & Optimization | Testing và tối ưu | |
+| 11 | Documentation & Deployment | Docs và deployment | |
 
 ## Dependencies Graph
 
