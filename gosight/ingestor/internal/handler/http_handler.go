@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -41,13 +43,31 @@ type EventResponse struct {
 }
 
 func (h *HTTPHandler) HandleEvents(w http.ResponseWriter, r *http.Request) {
-	// Read body
-	body, err := io.ReadAll(r.Body)
+	// Read raw body
+	rawBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read body", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
+
+	// Auto-detect and decompress gzip by checking magic bytes (0x1f 0x8b)
+	var body []byte
+	if len(rawBody) >= 2 && rawBody[0] == 0x1f && rawBody[1] == 0x8b {
+		reader, err := gzip.NewReader(bytes.NewReader(rawBody))
+		if err != nil {
+			http.Error(w, "Invalid gzip", http.StatusBadRequest)
+			return
+		}
+		defer reader.Close()
+		body, err = io.ReadAll(reader)
+		if err != nil {
+			http.Error(w, "Failed to decompress", http.StatusBadRequest)
+			return
+		}
+	} else {
+		body = rawBody
+	}
 
 	// Parse request
 	var req EventBatchRequest
@@ -139,13 +159,31 @@ type ReplayChunkRequest struct {
 }
 
 func (h *HTTPHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
-	// Read body
-	body, err := io.ReadAll(r.Body)
+	// Read raw body
+	rawBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read body", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
+
+	// Auto-detect and decompress gzip by checking magic bytes (0x1f 0x8b)
+	var body []byte
+	if len(rawBody) >= 2 && rawBody[0] == 0x1f && rawBody[1] == 0x8b {
+		reader, err := gzip.NewReader(bytes.NewReader(rawBody))
+		if err != nil {
+			http.Error(w, "Invalid gzip", http.StatusBadRequest)
+			return
+		}
+		defer reader.Close()
+		body, err = io.ReadAll(reader)
+		if err != nil {
+			http.Error(w, "Failed to decompress", http.StatusBadRequest)
+			return
+		}
+	} else {
+		body = rawBody
+	}
 
 	// Parse request
 	var req ReplayChunkRequest
