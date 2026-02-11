@@ -20,12 +20,13 @@ func NewKafkaProducer(cfg config.KafkaConfig) (*KafkaProducer, error) {
 
 	for name, topic := range cfg.Topics {
 		writers[name] = &kafka.Writer{
-			Addr:         kafka.TCP(cfg.Brokers...),
-			Topic:        topic,
-			Balancer:     &kafka.LeastBytes{},
-			BatchSize:    100,
-			BatchTimeout: time.Millisecond * 100,
-			Async:        true,
+			Addr:                   kafka.TCP(cfg.Brokers...),
+			Topic:                  topic,
+			Balancer:               &kafka.LeastBytes{},
+			BatchSize:              1,                       // Send immediately
+			BatchTimeout:           time.Millisecond * 10,   // Flush quickly
+			Async:                  false,                   // Sync mode for reliability
+			AllowAutoTopicCreation: true,
 		}
 	}
 

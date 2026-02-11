@@ -4,7 +4,7 @@ server:
 
 kafka:
   brokers:
-    - localhost:9092
+    - localhost:9094
   topics:
     events: gosight.events.raw
     replay: gosight.replay.chunks
@@ -16,7 +16,7 @@ redis:
   db: 0
 
 postgres:
-  dsn: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}
+  dsn: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5433/${POSTGRES_DB}
 
 geoip:
   database_path: /data/geoip/GeoLite2-City.mmdb

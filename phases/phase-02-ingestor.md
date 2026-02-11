@@ -870,8 +870,8 @@ CMD ["./ingestor"]
 - [x] Rate limiting
 - [x] Event enrichment (UserAgent, GeoIP)
 - [x] Dockerfile
-- [ ] Unit tests
-- [ ] Integration tests với Kafka
+- [x] Unit tests
+- [x] Integration tests với Kafka
 
 ## Kết Quả
 
