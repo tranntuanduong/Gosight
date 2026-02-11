@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
 
     -- Rate limiting
     rate_limit      INTEGER DEFAULT 1000,  -- requests per minute
+    request_count   BIGINT DEFAULT 0,      -- total requests made
 
     -- Status
     is_active       BOOLEAN DEFAULT true,
@@ -210,3 +211,41 @@ CREATE TRIGGER update_projects_updated_at
 CREATE TRIGGER update_alerts_updated_at
     BEFORE UPDATE ON alerts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ===========================================
+-- SEED DATA FOR DEVELOPMENT/TESTING
+-- ===========================================
+
+-- Test User (password: "testpassword123")
+INSERT INTO users (id, email, password_hash, name, is_active, is_verified)
+VALUES (
+    'a0000000-0000-0000-0000-000000000001',
+    'test@gosight.io',
+    '$2a$10$dummyhashfortestingonly1234567890abcdefghij',  -- Not a real bcrypt hash
+    'Test User',
+    true,
+    true
+) ON CONFLICT (email) DO NOTHING;
+
+-- Test Project
+INSERT INTO projects (id, name, domain, owner_id, is_active)
+VALUES (
+    'b0000000-0000-0000-0000-000000000001',
+    'Test Project',
+    'localhost',
+    'a0000000-0000-0000-0000-000000000001',
+    true
+) ON CONFLICT (id) DO NOTHING;
+
+-- Test API Key: gs_test_project_key
+-- SHA256 hash: dcb88588b93c599180731b5cafe355d90a28915ca3d1f475cd4f1a4cd7e8b7a9
+INSERT INTO api_keys (id, project_id, key_hash, key_prefix, name, is_active, request_count)
+VALUES (
+    'c0000000-0000-0000-0000-000000000001',
+    'b0000000-0000-0000-0000-000000000001',
+    'dcb88588b93c599180731b5cafe355d90a28915ca3d1f475cd4f1a4cd7e8b7a9',
+    'gs_test_',
+    'Test API Key',
+    true,
+    0
+) ON CONFLICT (id) DO NOTHING;
