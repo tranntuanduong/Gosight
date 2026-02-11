@@ -2,10 +2,12 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/google/uuid"
 
 	"github.com/gosight/gosight/processor/internal/config"
 )
@@ -110,6 +112,22 @@ type PageViewRow struct {
 	MaxScrollDepth uint8
 	DeviceType     string
 	Country        string
+}
+
+// InsightRow represents a row in the insights table
+type InsightRow struct {
+	InsightID       uuid.UUID
+	ProjectID       string
+	SessionID       string
+	InsightType     string
+	Timestamp       time.Time
+	URL             string
+	Path            string
+	X               *int
+	Y               *int
+	TargetSelector  string
+	Details         map[string]interface{}
+	RelatedEventIDs []string
 }
 
 func NewClickHouse(cfg config.ClickHouseConfig) (*ClickHouse, error) {
@@ -281,6 +299,67 @@ func (c *ClickHouse) UpsertSession(ctx context.Context, session SessionRow) erro
 		session.EntryPage, session.ExitPage,
 		session.HasReplay, session.IsBounced,
 	)
+}
+
+func (c *ClickHouse) InsertInsight(ctx context.Context, insight InsightRow) error {
+	detailsJSON, _ := json.Marshal(insight.Details)
+
+	// Convert X and Y pointers to int32 with default 0
+	var x, y int32
+	if insight.X != nil {
+		x = int32(*insight.X)
+	}
+	if insight.Y != nil {
+		y = int32(*insight.Y)
+	}
+
+	return c.conn.Exec(ctx, `
+		INSERT INTO insights (
+			insight_id, project_id, session_id, insight_type, timestamp,
+			url, path, x, y, target_selector, details, related_event_ids
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		insight.InsightID, insight.ProjectID, insight.SessionID, insight.InsightType, insight.Timestamp,
+		insight.URL, insight.Path, x, y, insight.TargetSelector, string(detailsJSON), insight.RelatedEventIDs,
+	)
+}
+
+func (c *ClickHouse) InsertInsights(ctx context.Context, insights []InsightRow) error {
+	if len(insights) == 0 {
+		return nil
+	}
+
+	batch, err := c.conn.PrepareBatch(ctx, `
+		INSERT INTO insights (
+			insight_id, project_id, session_id, insight_type, timestamp,
+			url, path, x, y, target_selector, details, related_event_ids
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	for _, insight := range insights {
+		detailsJSON, _ := json.Marshal(insight.Details)
+
+		var x, y int32
+		if insight.X != nil {
+			x = int32(*insight.X)
+		}
+		if insight.Y != nil {
+			y = int32(*insight.Y)
+		}
+
+		err := batch.Append(
+			insight.InsightID, insight.ProjectID, insight.SessionID, insight.InsightType, insight.Timestamp,
+			insight.URL, insight.Path, x, y, insight.TargetSelector, string(detailsJSON), insight.RelatedEventIDs,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return batch.Send()
 }
 
 func (c *ClickHouse) Close() error {

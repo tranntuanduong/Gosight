@@ -224,24 +224,34 @@ TTL toDateTime(timestamp) + INTERVAL 90 DAY;
 
 -- ===========================================
 -- Insights Table
--- Detected issues (rage clicks, dead clicks, etc.)
+-- Detected UX issues (rage clicks, dead clicks, etc.)
 -- ===========================================
 CREATE TABLE IF NOT EXISTS gosight.insights
 (
+    insight_id      UUID DEFAULT generateUUIDv4(),
     project_id      String,
     session_id      String,
 
-    insight_type    LowCardinality(String),  -- rage_click, dead_click, error_loop
-    severity        LowCardinality(String),  -- low, medium, high
+    insight_type    LowCardinality(String),  -- rage_click, dead_click, error_click, thrashed_cursor, u_turn, slow_page
 
     timestamp       DateTime64(3),
 
-    -- Context
-    page_url        String,
-    element_selector String,
+    -- Page context
+    url             String,
+    path            String,
+
+    -- Click position (for click-related insights)
+    x               Int32,
+    y               Int32,
+
+    -- Target element
+    target_selector String,
 
     -- Details (JSON)
     details         String,
+
+    -- Related event IDs
+    related_event_ids Array(String),
 
     created_at      DateTime DEFAULT now()
 )

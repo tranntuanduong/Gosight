@@ -21,9 +21,10 @@ help:
 	@echo "    make ps         - Show running containers"
 	@echo ""
 	@echo "  Run Services:"
-	@echo "    make run-ingestor  - Run ingestor service"
-	@echo "    make run-processor - Run event processor"
-	@echo "    make run-api       - Run API service"
+	@echo "    make run-ingestor          - Run ingestor service"
+	@echo "    make run-processor         - Run event processor"
+	@echo "    make run-insight-processor - Run insight processor"
+	@echo "    make run-api               - Run API service"
 	@echo ""
 	@echo "  Development:"
 	@echo "    make proto            - Generate protobuf code"
@@ -186,6 +187,11 @@ run-processor:
 	@echo "Starting Event Processor..."
 	cd processor && CONFIG_PATH=../config/processor.yaml go run ./cmd/event-processor/
 
+# Run insight processor
+run-insight-processor:
+	@echo "Starting Insight Processor..."
+	cd processor && CONFIG_PATH=../config/processor.yaml go run ./cmd/insight-processor/
+
 # Run API service
 run-api:
 	@echo "Starting API..."
@@ -277,6 +283,14 @@ ch-errors:
 	@echo ""
 	@echo "=== Recent errors ==="
 	@docker exec gosight-clickhouse clickhouse-client --query "SELECT message, error_type, page_path FROM gosight.errors ORDER BY timestamp DESC LIMIT 10"
+
+# Check insights in ClickHouse
+ch-insights:
+	@echo "=== Insights count ==="
+	@docker exec gosight-clickhouse clickhouse-client --query "SELECT count() as total FROM gosight.insights"
+	@echo ""
+	@echo "=== Recent insights ==="
+	@docker exec gosight-clickhouse clickhouse-client --query "SELECT insight_type, path, details, timestamp FROM gosight.insights ORDER BY timestamp DESC LIMIT 10"
 
 # Seed test data
 db-seed:

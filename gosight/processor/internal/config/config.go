@@ -12,6 +12,51 @@ type Config struct {
 	ClickHouse ClickHouseConfig `yaml:"clickhouse"`
 	Redis      RedisConfig      `yaml:"redis"`
 	Batch      BatchConfig      `yaml:"batch"`
+	Insights   InsightsConfig   `yaml:"insights"`
+}
+
+type InsightsConfig struct {
+	RageClick      RageClickConfig      `yaml:"rage_click"`
+	DeadClick      DeadClickConfig      `yaml:"dead_click"`
+	ErrorClick     ErrorClickConfig     `yaml:"error_click"`
+	ThrashedCursor ThrashedCursorConfig `yaml:"thrashed_cursor"`
+	UTurn          UTurnConfig          `yaml:"u_turn"`
+	SlowPage       SlowPageConfig       `yaml:"slow_page"`
+}
+
+type RageClickConfig struct {
+	Enabled      bool  `yaml:"enabled"`
+	MinClicks    int   `yaml:"min_clicks"`
+	TimeWindowMs int64 `yaml:"time_window_ms"`
+	RadiusPx     int   `yaml:"radius_px"`
+}
+
+type DeadClickConfig struct {
+	Enabled             bool  `yaml:"enabled"`
+	ObservationWindowMs int64 `yaml:"observation_window_ms"`
+}
+
+type ErrorClickConfig struct {
+	Enabled       bool  `yaml:"enabled"`
+	ErrorWindowMs int64 `yaml:"error_window_ms"`
+}
+
+type ThrashedCursorConfig struct {
+	Enabled             bool  `yaml:"enabled"`
+	MinDurationMs       int64 `yaml:"min_duration_ms"`
+	MinDirectionChanges int   `yaml:"min_direction_changes"`
+	MinVelocity         int   `yaml:"min_velocity"`
+}
+
+type UTurnConfig struct {
+	Enabled       bool  `yaml:"enabled"`
+	MaxTimeAwayMs int64 `yaml:"max_time_away_ms"`
+}
+
+type SlowPageConfig struct {
+	Enabled         bool  `yaml:"enabled"`
+	LCPThresholdMs  int64 `yaml:"lcp_threshold_ms"`
+	TTFBThresholdMs int64 `yaml:"ttfb_threshold_ms"`
 }
 
 type KafkaConfig struct {
@@ -66,6 +111,41 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.ClickHouse.MaxIdleConns == 0 {
 		cfg.ClickHouse.MaxIdleConns = 5
+	}
+
+	// Set insights defaults
+	if cfg.Insights.RageClick.MinClicks == 0 {
+		cfg.Insights.RageClick.MinClicks = 5
+	}
+	if cfg.Insights.RageClick.TimeWindowMs == 0 {
+		cfg.Insights.RageClick.TimeWindowMs = 2000
+	}
+	if cfg.Insights.RageClick.RadiusPx == 0 {
+		cfg.Insights.RageClick.RadiusPx = 50
+	}
+	if cfg.Insights.DeadClick.ObservationWindowMs == 0 {
+		cfg.Insights.DeadClick.ObservationWindowMs = 1000
+	}
+	if cfg.Insights.ErrorClick.ErrorWindowMs == 0 {
+		cfg.Insights.ErrorClick.ErrorWindowMs = 1000
+	}
+	if cfg.Insights.ThrashedCursor.MinDurationMs == 0 {
+		cfg.Insights.ThrashedCursor.MinDurationMs = 2000
+	}
+	if cfg.Insights.ThrashedCursor.MinDirectionChanges == 0 {
+		cfg.Insights.ThrashedCursor.MinDirectionChanges = 10
+	}
+	if cfg.Insights.ThrashedCursor.MinVelocity == 0 {
+		cfg.Insights.ThrashedCursor.MinVelocity = 500
+	}
+	if cfg.Insights.UTurn.MaxTimeAwayMs == 0 {
+		cfg.Insights.UTurn.MaxTimeAwayMs = 10000
+	}
+	if cfg.Insights.SlowPage.LCPThresholdMs == 0 {
+		cfg.Insights.SlowPage.LCPThresholdMs = 3000
+	}
+	if cfg.Insights.SlowPage.TTFBThresholdMs == 0 {
+		cfg.Insights.SlowPage.TTFBThresholdMs = 800
 	}
 
 	return &cfg, nil
