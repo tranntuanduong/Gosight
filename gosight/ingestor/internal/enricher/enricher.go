@@ -73,6 +73,24 @@ func (e *Enricher) Enrich(event map[string]interface{}, userAgentString, clientI
 	}
 	if v, ok := event["page"].(map[string]interface{}); ok {
 		enriched.Page = v
+	} else {
+		// Build page object from top-level url/path if not provided
+		page := make(map[string]interface{})
+		if url, ok := event["url"].(string); ok {
+			page["url"] = url
+		}
+		if path, ok := event["path"].(string); ok {
+			page["path"] = path
+		}
+		if title, ok := event["title"].(string); ok {
+			page["title"] = title
+		}
+		if referrer, ok := event["referrer"].(string); ok {
+			page["referrer"] = referrer
+		}
+		if len(page) > 0 {
+			enriched.Page = page
+		}
 	}
 	if v, ok := event["payload"].(map[string]interface{}); ok {
 		enriched.Payload = v

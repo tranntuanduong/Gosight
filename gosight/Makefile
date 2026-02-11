@@ -1,4 +1,4 @@
-.PHONY: help dev dev-full down restart logs proto clean build test test-integration test-coverage run-ingestor
+.PHONY: help dev dev-full down restart logs proto clean build test test-integration test-coverage run-ingestor run-processor ch-init ch-events ch-sessions ch-vitals ch-errors
 
 # Environment variables
 export POSTGRES_USER ?= gosight
@@ -37,6 +37,11 @@ help:
 	@echo "    make db-reset   - Reset all databases (WARNING: deletes data)"
 	@echo "    make db-seed    - Seed test data (API keys, etc.)"
 	@echo "    make ch-cli     - Open ClickHouse CLI"
+	@echo "    make ch-init    - Initialize ClickHouse schema"
+	@echo "    make ch-events  - Show events from ClickHouse"
+	@echo "    make ch-sessions- Show sessions from ClickHouse"
+	@echo "    make ch-vitals  - Show web vitals from ClickHouse"
+	@echo "    make ch-errors  - Show errors from ClickHouse"
 	@echo "    make pg-cli     - Open PostgreSQL CLI"
 	@echo ""
 	@echo "  Testing:"
@@ -66,9 +71,12 @@ setup: dev
 	@sleep 10
 	@$(MAKE) kafka-topics
 	@$(MAKE) db-init
+	@$(MAKE) ch-init
 	@$(MAKE) db-seed
 	@echo ""
-	@echo "✅ Setup complete! Run 'make run-ingestor' to start the ingestor."
+	@echo "✅ Setup complete!"
+	@echo "   Run 'make run-ingestor' to start the ingestor."
+	@echo "   Run 'make run-processor' to start the event processor."
 
 # Start all services including dev tools
 dev-full:
@@ -96,6 +104,9 @@ logs-ch:
 
 logs-pg:
 	docker compose logs -f postgres
+
+logs-processor:
+	docker compose logs -f event-processor
 
 # Show status
 ps:
@@ -228,6 +239,44 @@ kafka-topics:
 		--partitions 1 --replication-factor 1 2>/dev/null || true
 	docker exec gosight-kafka /opt/kafka/bin/kafka-topics.sh --list \
 		--bootstrap-server localhost:9092
+
+# Initialize ClickHouse schema
+ch-init:
+	@echo "Initializing ClickHouse schema..."
+	@docker exec -i gosight-clickhouse clickhouse-client --multiquery < scripts/init-clickhouse.sql
+	@echo "✅ ClickHouse initialized!"
+
+# Check events count in ClickHouse
+ch-events:
+	@echo "=== Events count ==="
+	@docker exec gosight-clickhouse clickhouse-client --query "SELECT count() as total FROM gosight.events"
+	@echo ""
+	@echo "=== Recent events ==="
+	@docker exec gosight-clickhouse clickhouse-client --query "SELECT event_id, event_type, timestamp, page_path FROM gosight.events ORDER BY timestamp DESC LIMIT 10"
+
+# Check sessions in ClickHouse
+ch-sessions:
+	@echo "=== Sessions count ==="
+	@docker exec gosight-clickhouse clickhouse-client --query "SELECT count() as total FROM gosight.sessions"
+	@echo ""
+	@echo "=== Recent sessions ==="
+	@docker exec gosight-clickhouse clickhouse-client --query "SELECT session_id, page_views, events_count, duration_ms FROM gosight.sessions ORDER BY started_at DESC LIMIT 10"
+
+# Check web vitals in ClickHouse
+ch-vitals:
+	@echo "=== Web Vitals count ==="
+	@docker exec gosight-clickhouse clickhouse-client --query "SELECT count() as total FROM gosight.web_vitals"
+	@echo ""
+	@echo "=== Recent vitals ==="
+	@docker exec gosight-clickhouse clickhouse-client --query "SELECT page_path, lcp, fid, cls, ttfb FROM gosight.web_vitals ORDER BY timestamp DESC LIMIT 10"
+
+# Check errors in ClickHouse
+ch-errors:
+	@echo "=== Errors count ==="
+	@docker exec gosight-clickhouse clickhouse-client --query "SELECT count() as total FROM gosight.errors"
+	@echo ""
+	@echo "=== Recent errors ==="
+	@docker exec gosight-clickhouse clickhouse-client --query "SELECT message, error_type, page_path FROM gosight.errors ORDER BY timestamp DESC LIMIT 10"
 
 # Seed test data
 db-seed:
