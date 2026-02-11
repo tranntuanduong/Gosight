@@ -1,0 +1,30 @@
+server:
+  grpc_port: 50051
+  http_port: 8081
+
+kafka:
+  brokers:
+    - localhost:9092
+  topics:
+    events: gosight.events.raw
+    replay: gosight.replay.chunks
+    errors: gosight.events.errors
+
+redis:
+  addr: localhost:6379
+  password: ${REDIS_PASSWORD}
+  db: 0
+
+postgres:
+  dsn: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}
+
+geoip:
+  database_path: /data/geoip/GeoLite2-City.mmdb
+
+rate_limit:
+  requests_per_second: 1000
+  burst: 2000
+
+batch:
+  max_size: 100
+  flush_interval: 1s

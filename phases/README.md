@@ -31,7 +31,7 @@
 | Phase | Tên | Mô tả | Status |
 |-------|-----|-------|--------|
 | 1 | Foundation & Infrastructure | Thiết lập cơ sở hạ tầng | :white_check_mark: |
-| 2 | Ingestor Service | gRPC server nhận events | |
+| 2 | Ingestor Service | gRPC server nhận events | :white_check_mark: |
 | 3 | SDK | Client-side JavaScript SDK | |
 | 4 | Event Processor | Xử lý events vào ClickHouse | |
 | 5 | Insight Processor | Phát hiện UX insights | |

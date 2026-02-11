@@ -51,11 +51,21 @@ coverage/
 *.out
 
 # ===========================================
-# Generated files
+# Generated files (keep proto files for builds)
 # ===========================================
-*.pb.go
-*_grpc.pb.go
+# Note: Proto generated files are committed for easier builds
+# sdk/src/proto/ is generated for TypeScript SDK
 sdk/src/proto/
+
+# ===========================================
+# Go binaries
+# ===========================================
+ingestor/ingestor
+processor/event-processor
+processor/insight-processor
+processor/replay-processor
+processor/alert-processor
+api/api
 
 # ===========================================
 # Docker
