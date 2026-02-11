@@ -60,13 +60,14 @@ func (p *KafkaProducer) ProduceEventJSON(ctx context.Context, projectID string, 
 	})
 }
 
-func (p *KafkaProducer) ProduceReplayChunk(ctx context.Context, chunk interface{}) error {
+func (p *KafkaProducer) ProduceReplayChunk(ctx context.Context, sessionID string, chunk interface{}) error {
 	data, err := json.Marshal(chunk)
 	if err != nil {
 		return err
 	}
 
 	return p.writers["replay"].WriteMessages(ctx, kafka.Message{
+		Key:   []byte(sessionID),
 		Value: data,
 	})
 }

@@ -3,9 +3,12 @@ package handler
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -149,16 +152,18 @@ func (h *HTTPHandler) HandleEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 type ReplayChunkRequest struct {
-	ProjectKey     string `json:"project_key"`
-	SessionID      string `json:"session_id"`
-	ChunkIndex     int    `json:"chunk_index"`
-	TimestampStart int64  `json:"timestamp_start"`
-	TimestampEnd   int64  `json:"timestamp_end"`
-	Data           string `json:"data"` // Base64 encoded compressed rrweb events
-	HasFullSnapshot bool  `json:"has_full_snapshot"`
+	ProjectKey      string        `json:"project_key"`
+	SessionID       string        `json:"session_id"`
+	ChunkIndex      int           `json:"chunk_index"`
+	TimestampStart  int64         `json:"timestamp_start"`
+	TimestampEnd    int64         `json:"timestamp_end"`
+	Events          []interface{} `json:"events"` // Raw rrweb events (gzip compressed at transport level)
+	HasFullSnapshot bool          `json:"has_full_snapshot"`
 }
 
 func (h *HTTPHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
+	log.Println("[Replay] Request received")
+
 	// Read raw body
 	rawBody, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -166,6 +171,7 @@ func (h *HTTPHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+	log.Printf("[Replay] Body size: %d bytes, isGzip: %v", len(rawBody), len(rawBody) >= 2 && rawBody[0] == 0x1f && rawBody[1] == 0x8b)
 
 	// Auto-detect and decompress gzip by checking magic bytes (0x1f 0x8b)
 	var body []byte
@@ -188,13 +194,16 @@ func (h *HTTPHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
 	// Parse request
 	var req ReplayChunkRequest
 	if err := json.Unmarshal(body, &req); err != nil {
+		log.Printf("[Replay] Invalid JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
+	log.Printf("[Replay] Parsed: sessionID=%s, chunkIndex=%d, events=%d", req.SessionID, req.ChunkIndex, len(req.Events))
 
 	// Validate API key
 	projectID, err := h.validator.ValidateAPIKey(r.Context(), req.ProjectKey)
 	if err != nil {
+		log.Printf("[Replay] Invalid API key: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -203,9 +212,11 @@ func (h *HTTPHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	log.Printf("[Replay] Validated projectID=%s", projectID)
 
 	// Rate limiting
 	if !h.validator.CheckRateLimit(projectID) {
+		log.Println("[Replay] Rate limit exceeded")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -222,13 +233,17 @@ func (h *HTTPHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
 		"chunk_index":       req.ChunkIndex,
 		"timestamp_start":   req.TimestampStart,
 		"timestamp_end":     req.TimestampEnd,
-		"data":              req.Data,
+		"events":            req.Events,
 		"has_full_snapshot": req.HasFullSnapshot,
 	}
 
-	// Produce to Kafka replay topic
-	err = h.producer.ProduceReplayChunk(r.Context(), chunk)
+	// Produce to Kafka replay topic with timeout
+	log.Println("[Replay] Sending to Kafka...")
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	err = h.producer.ProduceReplayChunk(ctx, req.SessionID, chunk)
 	if err != nil {
+		log.Printf("[Replay] Kafka error: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -237,6 +252,7 @@ func (h *HTTPHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	log.Println("[Replay] Success!")
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

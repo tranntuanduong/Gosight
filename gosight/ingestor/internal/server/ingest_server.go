@@ -209,7 +209,9 @@ func (s *IngestServer) SendReplay(stream pb.IngestService_SendReplayServer) erro
 		}
 
 		// Produce to Kafka replay topic
-		err = s.producer.ProduceReplayChunk(context.Background(), chunkMap)
+		// Note: gRPC ReplayChunk doesn't have session_id, using empty string
+		// TODO: Update proto to include session_id for proper Kafka partitioning
+		err = s.producer.ProduceReplayChunk(context.Background(), "", chunkMap)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to produce replay chunk")
 		}
