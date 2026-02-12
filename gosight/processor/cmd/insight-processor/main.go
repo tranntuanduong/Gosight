@@ -78,8 +78,8 @@ func main() {
 		cfg.Insights.SlowPage.Enabled = true
 	}
 
-	// Create insight processor
-	insightProcessor := insights.NewProcessor(ch, rdb, cfg.Insights)
+	// Create insight processor with Kafka alert publishing
+	insightProcessor := insights.NewProcessorWithKafka(ch, rdb, cfg.Insights, cfg.Kafka)
 
 	// Override consumer group for insight processor
 	cfg.Kafka.ConsumerGroup = "gosight-insight-processor"

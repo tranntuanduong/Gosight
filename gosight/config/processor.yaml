@@ -4,6 +4,7 @@ kafka:
   topics:
     events: gosight.events.raw
     replay: gosight.replay.raw
+    alerts: gosight.insights.alerts
   consumer_group: gosight-event-processor
 
 clickhouse:

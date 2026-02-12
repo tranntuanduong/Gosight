@@ -4,6 +4,7 @@ kafka:
   topics:
     events: gosight.events.raw
     replay: gosight.replay.raw
+    alerts: gosight.insights.alerts
   consumer_group: gosight-event-processor
 
 clickhouse:
@@ -22,3 +23,33 @@ redis:
 batch:
   size: 1000
   flush_interval: 5s
+
+insights:
+  rage_click:
+    enabled: true
+    min_clicks: 5
+    time_window_ms: 2000
+    radius_px: 50
+
+  dead_click:
+    enabled: true
+    observation_window_ms: 1000
+
+  error_click:
+    enabled: true
+    error_window_ms: 1000
+
+  thrashed_cursor:
+    enabled: true
+    min_duration_ms: 2000
+    min_direction_changes: 10
+    min_velocity: 500
+
+  u_turn:
+    enabled: true
+    max_time_away_ms: 10000
+
+  slow_page:
+    enabled: true
+    lcp_threshold_ms: 3000
+    ttfb_threshold_ms: 800

@@ -2,12 +2,14 @@ package insights
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
+	"github.com/segmentio/kafka-go"
 
 	"github.com/gosight/gosight/processor/internal/config"
 	"github.com/gosight/gosight/processor/internal/storage"
@@ -25,6 +27,9 @@ type Processor struct {
 	ch    *storage.ClickHouse
 	redis *redis.Client
 
+	// Kafka writer for alerts
+	alertWriter *kafka.Writer
+
 	// Buffer for batch inserts
 	insightBuffer []storage.InsightRow
 	mu            sync.Mutex
@@ -33,11 +38,30 @@ type Processor struct {
 
 // NewProcessor creates a new insight processor
 func NewProcessor(ch *storage.ClickHouse, rdb *redis.Client, cfg config.InsightsConfig) *Processor {
+	return NewProcessorWithKafka(ch, rdb, cfg, config.KafkaConfig{})
+}
+
+// NewProcessorWithKafka creates a new insight processor with Kafka alert publishing
+func NewProcessorWithKafka(ch *storage.ClickHouse, rdb *redis.Client, cfg config.InsightsConfig, kafkaCfg config.KafkaConfig) *Processor {
 	p := &Processor{
 		ch:            ch,
 		redis:         rdb,
 		insightBuffer: make([]storage.InsightRow, 0, 100),
 		lastFlush:     time.Now(),
+	}
+
+	// Initialize Kafka writer for alerts if configured
+	if alertsTopic, ok := kafkaCfg.Topics["alerts"]; ok && len(kafkaCfg.Brokers) > 0 {
+		p.alertWriter = &kafka.Writer{
+			Addr:                   kafka.TCP(kafkaCfg.Brokers...),
+			Topic:                  alertsTopic,
+			Balancer:               &kafka.LeastBytes{},
+			BatchSize:              1,
+			BatchTimeout:           time.Millisecond * 10,
+			Async:                  true, // Async for alerts to not block processing
+			AllowAutoTopicCreation: true,
+		}
+		log.Info().Str("topic", alertsTopic).Msg("Kafka alert writer initialized")
 	}
 
 	// Initialize detectors based on config
@@ -179,11 +203,59 @@ func (p *Processor) storeInsight(ctx context.Context, insight *Insight) {
 		p.Flush()
 	}
 
+	// Publish alert to Kafka for downstream alert processing (Phase 9)
+	p.publishAlert(ctx, insight, row.InsightID)
+
 	log.Info().
 		Str("type", insight.Type).
 		Str("session_id", insight.SessionID).
 		Str("url", insight.URL).
 		Msg("Insight detected")
+}
+
+// publishAlert publishes an insight alert to Kafka for downstream alert processing
+func (p *Processor) publishAlert(ctx context.Context, insight *Insight, insightID uuid.UUID) {
+	if p.alertWriter == nil {
+		return
+	}
+
+	alert := map[string]interface{}{
+		"insight_id":   insightID.String(),
+		"type":         insight.Type,
+		"project_id":   insight.ProjectID,
+		"session_id":   insight.SessionID,
+		"timestamp":    insight.Timestamp,
+		"url":          insight.URL,
+		"path":         insight.Path,
+		"details":      insight.Details,
+		"published_at": time.Now().UnixMilli(),
+	}
+
+	if insight.X != nil {
+		alert["x"] = *insight.X
+	}
+	if insight.Y != nil {
+		alert["y"] = *insight.Y
+	}
+	if insight.TargetSelector != "" {
+		alert["target_selector"] = insight.TargetSelector
+	}
+
+	data, err := json.Marshal(alert)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to marshal alert")
+		return
+	}
+
+	err = p.alertWriter.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(insight.ProjectID),
+		Value: data,
+	})
+	if err != nil {
+		log.Error().Err(err).Str("type", insight.Type).Msg("Failed to publish alert to Kafka")
+	} else {
+		log.Debug().Str("type", insight.Type).Str("project_id", insight.ProjectID).Msg("Alert published to Kafka")
+	}
 }
 
 func (p *Processor) flushLoop() {
@@ -345,4 +417,9 @@ func (p *Processor) parseEvent(raw map[string]interface{}) *Event {
 // Stop stops the processor
 func (p *Processor) Stop() {
 	p.Flush()
+	if p.alertWriter != nil {
+		if err := p.alertWriter.Close(); err != nil {
+			log.Error().Err(err).Msg("Failed to close alert writer")
+		}
+	}
 }
